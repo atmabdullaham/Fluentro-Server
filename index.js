@@ -34,6 +34,12 @@ async function run() {
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
     })
+
+    app.post('/add-tutorial', async(req,res)=>{
+        const tutorialData = req.body;
+        const result = await tutorialsCollection.insertOne(tutorialData)
+        res.send(result);
+      })
     
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();

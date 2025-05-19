@@ -13,7 +13,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.FLUENTRO_USER}:${process.env.FLUENTRO_PASS}@cluster0.4lxln.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 
@@ -34,6 +34,7 @@ async function run() {
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
     })
+
      //add tutorial api to add tutorial to db
     app.post('/add-tutorial', async(req,res)=>{
         const tutorialData = req.body;
@@ -48,6 +49,36 @@ async function run() {
         const result = await tutorialsCollection.find(query).toArray();
         res.send(result);
     })
+
+    // delete tutorial
+app.delete('/tutorials/:id', async(req, res)=>{
+    const id = req.params.id
+    console.log(id);
+    const query = {_id: new ObjectId(id)}
+    const result = await tutorialsCollection.deleteOne(query)
+    res.send(result)
+  })
+
+  // get a specific tutorial
+  app.get('/update-tutorial/:id', async(req, res)=>{
+    const id = req.params.id
+    const query = {_id: new ObjectId(id)}
+    const result = await tutorialsCollection.findOne(query)
+    res.send(result)
+  })
+
+  // update turorial
+  app.put('/update-tutorial/:id', async(req,res)=>{
+    const id = req.params.id;
+    const tutorialData = req.body;
+    const filter = { _id: new ObjectId(id) };
+    const options = {}
+    const updatedDoc = {
+      $set:tutorialData,
+    }
+    const result = await tutorialsCollection.updateOne(filter, updatedDoc, options)
+    res.send(result)
+  })
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();

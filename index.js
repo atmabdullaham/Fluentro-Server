@@ -92,6 +92,16 @@ app.delete('/tutorials/:id', async(req, res)=>{
     // save booked tutors data to db
     app.post('/add-booking', async(req,res)=>{
       const bookingData = req.body;
+      const { tutor, learnerEmail } = bookingData;
+      const existingBooking = await bookingDataCollection.findOne({
+        "tutor.tutorId": tutor.tutorId,
+        learnerEmail: learnerEmail,
+      });
+    
+      if (existingBooking) {
+        return res.status(409).send({ message: "You already booked this tutor" });
+      }
+      
       const result = await bookingDataCollection.insertOne(bookingData)
       res.send(result);
     })
@@ -107,9 +117,16 @@ app.delete('/tutorials/:id', async(req, res)=>{
 
   app.patch('/update-review/:id', async(req,res)=>{
     const id = req.params.id;
+    const email = req.body.email;
     const filter = { _id: new ObjectId(id) };
+    const tutorial = await tutorialsCollection.findOne(filter);
+    const alreadyReviewed = tutorial.reviewedBy?.includes(email);
+    if (alreadyReviewed) {
+      return res.status(403).send({ message: "You already gave a review." });
+    }
     const updatedDoc = {
       $inc: { review: 1 },
+      $addToSet: { reviewedBy: email }
     }
     const result = await tutorialsCollection.updateOne(filter, updatedDoc)
     res.send(result)

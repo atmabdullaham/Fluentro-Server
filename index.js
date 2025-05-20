@@ -132,6 +132,61 @@ app.delete('/tutorials/:id', async(req, res)=>{
     res.send(result)
   })
 
+
+
+  // load data for stats
+  app.get('/stats', async (req, res) => {
+    try {
+      // Count of all tutorials
+      const totalTutors = await tutorialsCollection.estimatedDocumentCount();
+  
+      // // Sum of all review fields
+      const reviewAgg = await tutorialsCollection.aggregate([
+        { $group: { _id: null, totalReview: { $sum: "$review" } } }
+      ]).toArray();
+      const totalReviews = reviewAgg[0]?.totalReview || 0;
+  
+      // // Unique languages
+      const languageAggregation = await tutorialsCollection.aggregate([
+        {
+          $group: {
+            _id: "$language" 
+          }
+        },
+        {
+          $count: "uniqueLanguages"
+        }
+      ]).toArray();
+      
+      const uniqueLanguageCount = languageAggregation[0]?.uniqueLanguages || 0;
+  
+      // Total booking users
+      const result = await bookingDataCollection.aggregate([
+        {
+          $group: {
+            _id: "$learnerEmail",
+          },
+        },
+        {
+          $count: "uniqueUserCount"
+        }
+      ]).toArray();
+      
+      const totalUsers = result[0]?.uniqueUserCount || 0;
+  
+      res.send({
+        totalTutors,
+        totalReviews,
+        uniqueLanguageCount,
+        totalUsers
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).send({ message: "Failed to load stats", error: err });
+    }
+  });
+  
+
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection

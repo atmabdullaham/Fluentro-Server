@@ -96,8 +96,24 @@ app.delete('/tutorials/:id', async(req, res)=>{
       res.send(result);
     })
 
-
+    // load booked tutors for specific person who was booked those tutors
+    app.get('/my-booked-tutors/:email', async(req,res)=>{
+      const email = req.params.email;
+      const query = {'learnerEmail': email};
+      const result = await bookingDataCollection.find(query).toArray();
+      res.send(result);
+  })
    
+
+  app.patch('/update-review/:id', async(req,res)=>{
+    const id = req.params.id;
+    const filter = { _id: new ObjectId(id) };
+    const updatedDoc = {
+      $inc: { review: 1 },
+    }
+    const result = await tutorialsCollection.updateOne(filter, updatedDoc)
+    res.send(result)
+  })
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();

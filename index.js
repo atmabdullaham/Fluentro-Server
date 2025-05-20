@@ -30,6 +30,7 @@ async function run() {
   try {
     const db = client.db('fluentrodb');
     const tutorialsCollection = db.collection('tutorials');
+    const bookedTutorsCollection = db.collection('bookedTutors');
 
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
@@ -60,7 +61,7 @@ app.delete('/tutorials/:id', async(req, res)=>{
   })
 
   // get a specific tutorial
-  app.get('/update-tutorial/:id', async(req, res)=>{
+  app.get('/get-one/:id', async(req, res)=>{
     const id = req.params.id
     const query = {_id: new ObjectId(id)}
     const result = await tutorialsCollection.findOne(query)
@@ -79,6 +80,15 @@ app.delete('/tutorials/:id', async(req, res)=>{
     const result = await tutorialsCollection.updateOne(filter, updatedDoc, options)
     res.send(result)
   })
+
+  //get all tutors
+    app.get('/tutors', async(req, res)=>{
+        const query = {}
+        const result = await tutorialsCollection.find(query).toArray();
+        res.send(result);
+    })
+
+   
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();

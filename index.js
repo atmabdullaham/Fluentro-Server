@@ -82,10 +82,11 @@ app.delete('/tutorials/:id', async(req, res)=>{
   })
 
   //get all tutors
-    app.get('/tutors', async(req, res)=>{
-        const query = {}
-        const result = await tutorialsCollection.find(query).toArray();
-        res.send(result);
+    app.get('/find-tutors', async(req, res)=>{
+      const language = req.query.language;
+      const query = language ? { language } : {};
+      const result = await tutorialsCollection.find(query).toArray();
+      res.send(result);
     })
 
 
@@ -132,6 +133,25 @@ app.delete('/tutorials/:id', async(req, res)=>{
     res.send(result)
   })
 
+  app.get("/category" , async (req, res)=>{
+    //////
+    const uniqueLanguageCaluctor = await tutorialsCollection.aggregate([
+      {
+        $group: {
+          _id: "$language"
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          language: "$_id"
+        }
+      }
+    ]).toArray();
+    
+    const uniqueLanguages = uniqueLanguageCaluctor.map(item => item.language);
+    res.send(uniqueLanguages);
+  })
 
 
   // load data for stats
@@ -145,6 +165,16 @@ app.delete('/tutorials/:id', async(req, res)=>{
         { $group: { _id: null, totalReview: { $sum: "$review" } } }
       ]).toArray();
       const totalReviews = reviewAgg[0]?.totalReview || 0;
+
+
+
+
+
+
+
+
+
+    ////
   
       // // Unique languages
       const languageAggregation = await tutorialsCollection.aggregate([
@@ -159,7 +189,6 @@ app.delete('/tutorials/:id', async(req, res)=>{
       ]).toArray();
       
       const uniqueLanguageCount = languageAggregation[0]?.uniqueLanguages || 0;
-  
       // Total booking users
       const result = await bookingDataCollection.aggregate([
         {
@@ -178,7 +207,8 @@ app.delete('/tutorials/:id', async(req, res)=>{
         totalTutors,
         totalReviews,
         uniqueLanguageCount,
-        totalUsers
+        totalUsers,
+        languageAggregation
       });
     } catch (err) {
       console.error(err);

@@ -30,7 +30,7 @@ async function run() {
   try {
     const db = client.db('fluentrodb');
     const tutorialsCollection = db.collection('tutorials');
-    const bookedTutorsCollection = db.collection('bookedTutors');
+    const bookingDataCollection = db.collection('bookingData');
 
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
@@ -87,6 +87,15 @@ app.delete('/tutorials/:id', async(req, res)=>{
         const result = await tutorialsCollection.find(query).toArray();
         res.send(result);
     })
+
+
+    // save booked tutors data to db
+    app.post('/add-booking', async(req,res)=>{
+      const bookingData = req.body;
+      const result = await bookingDataCollection.insertOne(bookingData)
+      res.send(result);
+    })
+
 
    
 

@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 
 const app = express();
 require('dotenv').config();
@@ -7,8 +9,12 @@ const port = process.env.PORT || 5000;
 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials:true
+}));
 app.use(express.json());
+app.use(cookieParser())
 
 
 
@@ -32,19 +38,50 @@ async function run() {
     const tutorialsCollection = db.collection('tutorials');
     const bookingDataCollection = db.collection('bookingData');
 
+
+    // Json web token
+    app.post ('/jwt', async(req, res)=>{
+      const user = req.body
+      const token = jwt.sign({user}, process.env.JWT_SECRET, {expiresIn: '1h'})
+      res
+      .cookie('token', token,{
+        httpOnly: true,
+        secure:false
+      })
+      .send({success: true}, token)
+    })
+
+
+    const verifyToken = (req, res, next)=>{
+      const token = req.cookies?.token;
+      console.log(token)
+      if(!token){
+        return res.status(401).send({message: "Unauthorized access"})
+      }
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded)=>{
+        if(err){
+          return res.status(401).send({message: 'UnAuthorized Access'})
+        }
+        req.user = decoded
+        next()
+      })
+     
+    }
+
+
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
     })
 
      //add tutorial api to add tutorial to db
-    app.post('/add-tutorial', async(req,res)=>{
+    app.post('/add-tutorial',verifyToken, async(req,res)=>{
         const tutorialData = req.body;
         const result = await tutorialsCollection.insertOne(tutorialData)
         res.send(result);
       })
 
     // load tutorials for specific person who was added those tutorials
-    app.get('/tutorials/:email', async(req,res)=>{
+    app.get('/tutorials/:email', verifyToken,  async(req,res)=>{
         const email = req.params.email;
         const query = {'tutor.email': email};
         const result = await tutorialsCollection.find(query).toArray();
@@ -52,7 +89,7 @@ async function run() {
     })
 
     // delete tutorial
-app.delete('/tutorials/:id', async(req, res)=>{
+app.delete('/tutorials/:id',verifyToken, async(req, res)=>{
     const id = req.params.id
     console.log(id);
     const query = {_id: new ObjectId(id)}
@@ -61,7 +98,7 @@ app.delete('/tutorials/:id', async(req, res)=>{
   })
 
   // get a specific tutorial
-  app.get('/get-one/:id', async(req, res)=>{
+  app.get('/get-one/:id', verifyToken, async(req, res)=>{
     const id = req.params.id
     const query = {_id: new ObjectId(id)}
     const result = await tutorialsCollection.findOne(query)
@@ -69,7 +106,7 @@ app.delete('/tutorials/:id', async(req, res)=>{
   })
 
   // update turorial
-  app.put('/update-tutorial/:id', async(req,res)=>{
+  app.put('/update-tutorial/:id', verifyToken, async(req,res)=>{
     const id = req.params.id;
     const tutorialData = req.body;
     const filter = { _id: new ObjectId(id) };
@@ -84,7 +121,9 @@ app.delete('/tutorials/:id', async(req, res)=>{
   //get all tutors
     app.get('/find-tutors', async(req, res)=>{
       const language = req.query.language;
-      const query = language ? { language } : {};
+      const search = req.query.search;
+      console.log(language)
+      const query = language ? { language } : {language:{$regex:search, $options: 'i'}};
       const result = await tutorialsCollection.find(query).toArray();
       res.send(result);
     })
@@ -107,11 +146,18 @@ app.delete('/tutorials/:id', async(req, res)=>{
       res.send(result);
     })
 
+
+
     // load booked tutors for specific person who was booked those tutors
-    app.get('/my-booked-tutors/:email', async(req,res)=>{
+    app.get('/my-booked-tutors/:email', verifyToken, async(req,res)=>{
       const email = req.params.email;
+     console.log(req.user.user.email, email)
+     if(req.user.user.email !== email){
+      return res.status(403).send({message: "forbidden access"})
+     }
       const query = {'learnerEmail': email};
       const result = await bookingDataCollection.find(query).toArray();
+      
       res.send(result);
   })
    
@@ -165,17 +211,6 @@ app.delete('/tutorials/:id', async(req, res)=>{
         { $group: { _id: null, totalReview: { $sum: "$review" } } }
       ]).toArray();
       const totalReviews = reviewAgg[0]?.totalReview || 0;
-
-
-
-
-
-
-
-
-
-    ////
-  
       // // Unique languages
       const languageAggregation = await tutorialsCollection.aggregate([
         {

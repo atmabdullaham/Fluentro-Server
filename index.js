@@ -10,7 +10,11 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin:['http://localhost:5173'],
+  origin:[
+    'http://localhost:5173',
+    'https://fluentor-185f0.web.app',
+    'https://fluentor-185f0.firebaseapp.com'
+  ],
   credentials:true
 }));
 app.use(express.json());
@@ -42,24 +46,28 @@ async function run() {
     // Json web token
     app.post ('/jwt', async(req, res)=>{
       const user = req.body
-      const token = jwt.sign({user}, process.env.JWT_SECRET, {expiresIn: '1h'})
+      const token = jwt.sign({user}, process.env.JWT_SECRET, {expiresIn: '5h'})
       res
       .cookie('token', token,{
         httpOnly: true,
-        secure:false
+        secure: process.env.NODE_ENV === "production",
+        sameSite: 'none',
       })
       .send({success: true}, token)
     })
 
 
     const verifyToken = (req, res, next)=>{
+     
       const token = req.cookies?.token;
-      console.log(token)
+      
       if(!token){
+        
         return res.status(401).send({message: "Unauthorized access"})
       }
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded)=>{
         if(err){
+          
           return res.status(401).send({message: 'UnAuthorized Access'})
         }
         req.user = decoded
@@ -68,13 +76,20 @@ async function run() {
      
     }
 
-
+  // Remove token from cookies after succesfull logout
+  app.post('logout', async(req, res)=>{
+    res.clearCookie('token',{
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    })
+    .send({success: true})
+  })
     app.get('/', async(req, res)=>{
         res.send('Fluentro server is running');
     })
 
      //add tutorial api to add tutorial to db
-    app.post('/add-tutorial',verifyToken, async(req,res)=>{
+    app.post('/add-tutorial', verifyToken,  async(req,res)=>{
         const tutorialData = req.body;
         const result = await tutorialsCollection.insertOne(tutorialData)
         res.send(result);
@@ -118,15 +133,34 @@ app.delete('/tutorials/:id',verifyToken, async(req, res)=>{
     res.send(result)
   })
 
-  //get all tutors
-    app.get('/find-tutors', async(req, res)=>{
+  app.get('/find-tutors', async (req, res) => {
+    try {
       const language = req.query.language;
       const search = req.query.search;
-      console.log(language)
-      const query = language ? { language } : {language:{$regex:search, $options: 'i'}};
+  
+      let query = {};
+  
+      if (language && search) {
+        query = {
+          $and: [
+            { language: language },
+            { language: { $regex: search, $options: 'i' } }
+          ]
+        };
+      } else if (language) {
+        query.language = language;
+      } else if (search) {
+        query.language = { $regex: search, $options: 'i' };
+      }
+  
       const result = await tutorialsCollection.find(query).toArray();
       res.send(result);
-    })
+    } catch (error) {
+      console.error("Error fetching tutors:", error);
+      res.status(500).send({ error: "Failed to fetch tutors" });
+    }
+  });
+  
 
 
     // save booked tutors data to db
@@ -151,10 +185,6 @@ app.delete('/tutorials/:id',verifyToken, async(req, res)=>{
     // load booked tutors for specific person who was booked those tutors
     app.get('/my-booked-tutors/:email', verifyToken, async(req,res)=>{
       const email = req.params.email;
-     console.log(req.user.user.email, email)
-     if(req.user.user.email !== email){
-      return res.status(403).send({message: "forbidden access"})
-     }
       const query = {'learnerEmail': email};
       const result = await bookingDataCollection.find(query).toArray();
       
@@ -255,8 +285,8 @@ app.delete('/tutorials/:id',verifyToken, async(req, res)=>{
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
